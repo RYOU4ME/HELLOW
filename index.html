@@ -3,16 +3,53 @@
 <head>
     <title>Chat with Friends</title>
     <style>
-        body { font-family: sans-serif; background: #ece5dd; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        /* --- CHAT STYLING --- */
+        body { 
+            font-family: sans-serif; 
+            background: #ece5dd; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            margin: 0; 
+            /* Makes sure you can see your real MacBook arrow */
+            cursor: default !important; 
+        }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; }
         .msg { background: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; width: fit-content; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .input-box { background: #f0f0f0; padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
+        .input-box { background: #f0f0f0; padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; z-index: 10; }
         input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 20px; outline: none; }
         button { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
         button:hover { background: #128c7e; }
+
+        /* --- GHOST STYLING --- */
+        #ghost-pet {
+            position: fixed;
+            width: 85px; /* Size of your ghost */
+            height: auto;
+            pointer-events: none; /* Important: Allows clicking "through" the ghost */
+            z-index: 99999;
+            left: 0;
+            top: 0;
+            will-change: transform;
+        }
+        #ghost-pet img {
+            width: 100%;
+            height: auto;
+            display: block;
+            animation: ghost-bob 2.5s infinite ease-in-out;
+        }
+        @keyframes ghost-bob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
     </style>
 </head>
 <body>
+
+    <div id="ghost-pet">
+        <img src="cghost.png" alt="Ghost Pet">
+    </div>
+
     <div id="messages"></div>
     <div class="input-box">
         <input type="text" id="name" placeholder="Name" style="width: 20%;">
@@ -24,6 +61,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "my-chat-61467.firebaseapp.com",
@@ -38,29 +76,57 @@
         const db = getDatabase(app);
         const chatRef = ref(db, "chats");
 
-        // The core Send function
+        /* --- GHOST MOVEMENT LOGIC --- */
+        const ghost = document.getElementById('ghost-pet');
+        let mouseX = 0, mouseY = 0, ghostX = 0, ghostY = 0;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        function animateGhost() {
+            // 1. SPEED (0.1 = slow, 0.3 = fast)
+            const speed = 0.15; 
+
+            // 2. DISTANCE (OFFSET) 
+            // -110 stays to the LEFT. 
+            // +15 stays slightly BELOW.
+            const horizontalDist = -110; 
+            const verticalDist = 15;    
+
+            let dx = mouseX - ghostX;
+            let dy = mouseY - ghostY;
+            ghostX += dx * speed;
+            ghostY += dy * speed;
+
+            let tilt = dx * 0.12; // How much he leans when moving
+            tilt = Math.max(Math.min(tilt, 25), -25);
+
+            ghost.style.transform = `translate(${ghostX + horizontalDist}px, ${ghostY + verticalDist}px) rotate(${tilt}deg)`;
+            requestAnimationFrame(animateGhost);
+        }
+        animateGhost();
+
+        /* --- CHAT LOGIC --- */
         const sendAction = () => {
             const nameInput = document.getElementById("name");
             const msgInput = document.getElementById("msg");
-            
             if (msgInput.value.trim() !== "") {
                 push(chatRef, {
                     name: nameInput.value || "Guest",
                     text: msgInput.value
                 });
-                msgInput.value = ""; // Clears the box after sending
+                msgInput.value = "";
             }
         };
 
-        // Trigger on Button Click
         document.getElementById("sendBtn").onclick = sendAction;
 
-        // NEW: Trigger on Enter Key
-        const msgInput = document.getElementById("msg");
-        msgInput.addEventListener("keydown", (event) => {
+        document.getElementById("msg").addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
-                event.preventDefault(); // Prevents cursor from making a new line
-                sendAction(); // Calls the same send function
+                event.preventDefault();
+                sendAction();
             }
         });
 
