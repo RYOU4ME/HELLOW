@@ -56,7 +56,7 @@
         window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
         function animateGhost() {
             ghostX += (mouseX - ghostX) * 0.15; ghostY += (mouseY - ghostY) * 0.15;
-            ghost.style.transform = `translate(${ghostX - 110}px, ${ghostY + 15}px)`;
+            ghost.style.transform = `translate(${ghostX - 100}px, ${ghostY -20}px)`;
             requestAnimationFrame(animateGhost);
         }
         animateGhost();
