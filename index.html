@@ -1,39 +1,300 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Chat with Friends</title>
-    <style>
-        body { font-family: sans-serif; background: #ece5dd; display: flex; flex-direction: column; height: 100vh; margin: 0; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; }
-        .msg { background: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; width: fit-content; max-width: 80%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .input-box { background: #f0f0f0; padding: 15px; display: flex; gap: 10px; border-top: 1px solid #ddd; z-index: 10; flex-wrap: wrap; }
-        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 20px; outline: none; }
-        button { background: #075e54; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        
-        /* GHOST PET */
-        #ghost-pet { position: fixed; width: 85px; pointer-events: none; z-index: 99999; left: 0; top: 0; }
-        #ghost-pet img { width: 100%; height: auto; animation: ghost-bob 2.5s infinite ease-in-out; }
-        @keyframes ghost-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--surface:rgba(255,255,255,0.04);--surface2:rgba(255,255,255,0.07);
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --accent:#7c6af7;--accent2:#a78bfa;--accent-glow:rgba(124,106,247,0.28);
+  --red:#f87171;--green:#4ade80;
+  --bubble-out:linear-gradient(135deg,#7c6af7,#a78bfa);
+  --text:#f0eeff;--text-muted:rgba(240,238,255,0.45);--text-dim:rgba(240,238,255,0.25);
+  --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 20% 10%,rgba(124,106,247,0.12) 0%,transparent 70%),radial-gradient(ellipse 40% 50% at 80% 80%,rgba(167,139,250,0.08) 0%,transparent 60%);pointer-events:none;z-index:0}
+ 
+/* TOOLBAR */
+#toolbar{position:relative;z-index:100;background:rgba(13,15,20,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.toolbar-left{display:flex;align-items:center;gap:10px}
+.toolbar-brand{font-size:15px;font-weight:600;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px}
+.brand-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse-dot 2s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.6;transform:scale(0.8)}}
+ 
+/* Call buttons in toolbar */
+.call-btns{display:flex;gap:6px}
+.call-btn{background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text-muted);padding:6px 12px;font-size:12px;font-family:var(--font);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.2s}
+.call-btn:hover{color:var(--text);border-color:var(--border2);background:rgba(255,255,255,0.1)}
+.call-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+.call-btn.audio:hover{color:#4ade80;border-color:rgba(74,222,128,0.3)}
+.call-btn.video:hover{color:var(--accent2);border-color:rgba(124,106,247,0.3)}
+ 
+.device-btns{display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px}
+.device-btns button{background:transparent;color:var(--text-muted);border:none;padding:5px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-family:var(--font);font-weight:500;transition:all 0.2s}
+.device-btns button.active{background:var(--accent);color:white;box-shadow:0 2px 8px var(--accent-glow)}
+ 
+/* VIEWPORT */
+#app-viewport{flex:1;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;position:relative;z-index:1;transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
+.view-desktop{width:100%;height:calc(100vh - 54px)}
+.view-mobile{width:375px;height:667px;border:2px solid rgba(255,255,255,0.12);border-radius:36px;box-shadow:0 0 0 8px rgba(0,0,0,0.5),0 30px 60px rgba(0,0,0,0.6),0 0 60px var(--accent-glow);margin:8px auto}
+ 
+/* MESSAGES */
+#messages{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
+#messages::-webkit-scrollbar{width:4px}
+#messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+ 
+.msg-wrapper{display:flex;align-items:flex-end;gap:8px;animation:msg-in 0.3s cubic-bezier(0.34,1.56,0.64,1) both}
+@keyframes msg-in{from{opacity:0;transform:translateY(12px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.msg-wrapper.outgoing{flex-direction:row-reverse}
+ 
+.avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--border)}
+.avatar-placeholder{width:32px;height:32px;border-radius:50%;background:var(--surface);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-weight:600;color:var(--accent2)}
+ 
+.bubble-group{display:flex;flex-direction:column;gap:3px;max-width:72%}
+.msg-wrapper.outgoing .bubble-group{align-items:flex-end}
+.sender-name{font-size:11px;color:var(--text-muted);font-weight:500;padding:0 6px;margin-bottom:2px}
+.bubble{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word}
+.bubble.incoming{background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:6px;backdrop-filter:blur(10px)}
+.bubble.outgoing{background:var(--bubble-out);color:white;border-bottom-right-radius:6px;box-shadow:0 4px 16px var(--accent-glow)}
+.msg-time{font-size:10px;color:var(--text-dim);font-family:var(--mono);padding:0 6px;margin-top:2px}
+ 
+/* Voice message bubble */
+.voice-bubble{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:18px;min-width:200px}
+.voice-bubble.incoming{background:rgba(255,255,255,0.07);border:1px solid var(--border);border-bottom-left-radius:6px}
+.voice-bubble.outgoing{background:var(--bubble-out);border-bottom-right-radius:6px;box-shadow:0 4px 16px var(--accent-glow)}
+.play-btn{width:32px;height:32px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform 0.15s}
+.voice-bubble.incoming .play-btn{background:rgba(255,255,255,0.15)}
+.voice-bubble.outgoing .play-btn{background:rgba(255,255,255,0.25)}
+.play-btn:hover{transform:scale(1.1)}
+.play-btn svg{width:14px;height:14px;fill:white}
+.voice-waveform{flex:1;height:28px;display:flex;align-items:center;gap:2px}
+.wbar{width:3px;border-radius:2px;background:rgba(255,255,255,0.5);animation:wbar-idle 1.2s ease-in-out infinite}
+.wbar:nth-child(2){height:60%;animation-delay:.1s}
+.wbar:nth-child(3){height:90%;animation-delay:.2s}
+.wbar:nth-child(4){height:45%;animation-delay:.3s}
+.wbar:nth-child(5){height:75%;animation-delay:.4s}
+.wbar:nth-child(6){height:55%;animation-delay:.05s}
+.wbar:nth-child(7){height:85%;animation-delay:.25s}
+.wbar:nth-child(8){height:40%;animation-delay:.35s}
+.wbar:nth-child(1){height:50%}
+@keyframes wbar-idle{0%,100%{opacity:0.4;transform:scaleY(1)}50%{opacity:0.8;transform:scaleY(1.15)}}
+.voice-dur{font-size:11px;color:rgba(255,255,255,0.7);font-family:var(--mono);flex-shrink:0}
+ 
+/* CONTROLS */
+.chat-controls{position:relative;z-index:10;background:rgba(13,15,20,0.88);backdrop-filter:blur(24px);border-top:1px solid var(--border);padding:10px 14px}
+.settings-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.settings-toggle{width:100%;background:transparent;border:none;color:var(--text-muted);padding:10px 14px;font-size:12px;font-family:var(--font);font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:color 0.2s}
+.settings-toggle:hover{color:var(--text)}
+.settings-toggle .arrow{transition:transform 0.25s;display:inline-block}
+.settings-toggle.open .arrow{transform:rotate(180deg)}
+.settings-body{display:none;padding:0 14px 14px;flex-direction:column;gap:8px}
+.settings-body.open{display:flex}
+.field-label{font-size:11px;color:var(--text-dim);font-weight:500;letter-spacing:0.4px;margin-bottom:2px}
+.settings-input{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:9px 12px;font-size:13px;font-family:var(--font);outline:none;width:100%;transition:border-color 0.2s,background 0.2s}
+.settings-input:focus{border-color:var(--accent);background:rgba(124,106,247,0.08)}
+.settings-input::placeholder{color:var(--text-dim)}
+.upload-label{display:block;background:rgba(255,255,255,0.04);border:1px dashed rgba(124,106,247,0.4);border-radius:10px;color:var(--accent2);padding:9px 14px;font-size:12px;font-family:var(--font);font-weight:500;cursor:pointer;text-align:center;transition:all 0.2s}
+.upload-label:hover{background:rgba(124,106,247,0.1);border-color:var(--accent)}
+#photoInput{display:none}
+.photo-ready{font-size:10px;color:var(--green);margin-top:4px;display:none;text-align:center}
+ 
+/* Input row */
+.input-row{display:flex;gap:8px;align-items:center}
+#msg{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:24px;color:var(--text);padding:11px 18px;font-size:14px;font-family:var(--font);outline:none;transition:border-color 0.2s,background 0.2s}
+#msg:focus{border-color:var(--accent);background:rgba(124,106,247,0.06)}
+#msg::placeholder{color:var(--text-dim)}
+ 
+.icon-btn{background:var(--surface);border:1px solid var(--border);border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all 0.2s;color:var(--text-muted)}
+.icon-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+ 
+#voiceBtn.recording{background:rgba(248,113,113,0.15);border-color:rgba(248,113,113,0.4);color:var(--red);animation:rec-pulse 1s ease-in-out infinite}
+@keyframes rec-pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0.3)}50%{box-shadow:0 0 0 6px rgba(248,113,113,0)}}
+ 
+#sendBtn{background:var(--bubble-out);border:none;border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform 0.15s,box-shadow 0.2s;box-shadow:0 4px 14px var(--accent-glow)}
+#sendBtn:hover{transform:scale(1.08);box-shadow:0 6px 20px var(--accent-glow)}
+#sendBtn:active{transform:scale(0.94)}
+#sendBtn svg{width:17px;height:17px;stroke:white;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+ 
+#empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-dim);font-size:13px;text-align:center;padding:40px}
+.empty-icon{width:52px;height:52px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px}
+ 
+/* ===== CALL OVERLAY ===== */
+#callOverlay{display:none;position:fixed;inset:0;z-index:999;background:rgba(8,10,16,0.97);backdrop-filter:blur(30px);flex-direction:column;align-items:center;justify-content:center;gap:20px}
+#callOverlay.active{display:flex}
+#callOverlay::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 50% 30%,rgba(124,106,247,0.15) 0%,transparent 70%);pointer-events:none}
+ 
+#videoGrid{display:none;width:100%;max-width:700px;gap:12px;padding:0 16px;position:relative}
+#videoGrid.visible{display:flex;flex-wrap:wrap;justify-content:center}
+video{border-radius:16px;background:#111;object-fit:cover}
+#remoteVideo{width:100%;max-width:560px;height:340px;border:1px solid var(--border2)}
+#localVideo{width:140px;height:100px;position:absolute;bottom:12px;right:28px;border:2px solid rgba(255,255,255,0.2);box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+ 
+.call-avatar{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#7c6af7,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:600;color:white;box-shadow:0 0 40px var(--accent-glow);animation:avatar-glow 2s ease-in-out infinite}
+@keyframes avatar-glow{0%,100%{box-shadow:0 0 30px var(--accent-glow)}50%{box-shadow:0 0 60px rgba(124,106,247,0.5)}}
+ 
+.call-name{font-size:22px;font-weight:600;letter-spacing:-0.5px}
+.call-status{font-size:13px;color:var(--text-muted);font-family:var(--mono);letter-spacing:0.5px}
+ 
+/* Waveform rings for audio call */
+.audio-rings{position:relative;width:90px;height:90px;display:flex;align-items:center;justify-content:center}
+.ring{position:absolute;border-radius:50%;border:2px solid rgba(124,106,247,0.3);animation:ring-expand 2s ease-out infinite}
+.ring:nth-child(1){width:90px;height:90px;animation-delay:0s}
+.ring:nth-child(2){width:90px;height:90px;animation-delay:0.6s}
+.ring:nth-child(3){width:90px;height:90px;animation-delay:1.2s}
+@keyframes ring-expand{0%{width:90px;height:90px;opacity:0.8}100%{width:180px;height:180px;opacity:0}}
+ 
+.call-controls{display:flex;gap:14px;align-items:center;margin-top:8px}
+.ctrl-btn{width:56px;height:56px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.15s,box-shadow 0.2s;flex-shrink:0}
+.ctrl-btn:hover{transform:scale(1.08)}
+.ctrl-btn:active{transform:scale(0.93)}
+.ctrl-btn svg{width:22px;height:22px;stroke:white;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ctrl-btn.end{background:#ef4444;box-shadow:0 4px 20px rgba(239,68,68,0.4)}
+.ctrl-btn.end:hover{box-shadow:0 6px 28px rgba(239,68,68,0.6)}
+.ctrl-btn.mute{background:var(--surface2);border:1px solid var(--border2)}
+.ctrl-btn.mute.active{background:rgba(248,113,113,0.2);border-color:rgba(248,113,113,0.4)}
+.ctrl-btn.cam{background:var(--surface2);border:1px solid var(--border2)}
+.ctrl-btn.cam.active{background:rgba(248,113,113,0.2);border-color:rgba(248,113,113,0.4)}
+ 
+/* Incoming call toast */
+#incomingCall{display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:998;background:rgba(20,22,30,0.96);backdrop-filter:blur(20px);border:1px solid var(--border2);border-radius:20px;padding:16px 20px;min-width:300px;box-shadow:0 8px 40px rgba(0,0,0,0.6);animation:slide-down 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+#incomingCall.active{display:flex;align-items:center;gap:14px}
+@keyframes slide-down{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.inc-info{flex:1}
+.inc-type{font-size:11px;color:var(--text-muted);font-family:var(--mono);letter-spacing:0.5px}
+.inc-name{font-size:15px;font-weight:600;margin-top:2px}
+.inc-btns{display:flex;gap:8px}
+.inc-btn{width:40px;height:40px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.15s}
+.inc-btn:hover{transform:scale(1.1)}
+.inc-btn.accept{background:#22c55e;box-shadow:0 2px 12px rgba(34,197,94,0.4)}
+.inc-btn.reject{background:#ef4444;box-shadow:0 2px 12px rgba(239,68,68,0.4)}
+.inc-btn svg{width:18px;height:18px;stroke:white;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+</style>
 </head>
 <body>
-
-    <div id="ghost-pet"><img src="cghost.png" alt="Ghost Pet"></div>
-    <div id="messages"></div>
-    
-    <div class="input-box">
-        <input type="text" id="room" placeholder="Room (enter room id)" style="width: 30%; border: 2px solid #075e54;">
-        <input type="text" id="name" placeholder="Name" style="width: 20%;">
-        <input type="text" id="msg" placeholder="Type a message...">
-        <button id="sendBtn">Send</button>
+ 
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <div class="toolbar-left">
+    <div class="toolbar-brand">
+      <div class="brand-dot"></div>
+      Vibe Chat
     </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        // --- REPLACE THIS BOX WITH YOUR FIREBASE CONFIG ---
-      const firebaseConfig = {
+    <div class="call-btns">
+      <button class="call-btn audio" onclick="startCall('audio')" title="Audio Call">
+        <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.1 10.81 19.79 19.79 0 01.07 2.18 2 2 0 012.06 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92v2z"/></svg>
+        Audio
+      </button>
+      <button class="call-btn video" onclick="startCall('video')" title="Video Call">
+        <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        Video
+      </button>
+    </div>
+  </div>
+  <div class="device-btns">
+    <button id="btn-mobile" onclick="setDevice('mobile')">iPhone</button>
+    <button id="btn-desktop" class="active" onclick="setDevice('desktop')">Desktop</button>
+  </div>
+</div>
+ 
+<!-- INCOMING CALL TOAST -->
+<div id="incomingCall">
+  <div class="inc-info">
+    <div class="inc-type" id="incType">INCOMING AUDIO CALL</div>
+    <div class="inc-name" id="incName">Someone</div>
+  </div>
+  <div class="inc-btns">
+    <button class="inc-btn accept" onclick="acceptCall()">
+      <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.1 10.81 19.79 19.79 0 01.07 2.18 2 2 0 012.06 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 14.92v2z"/></svg>
+    </button>
+    <button class="inc-btn reject" onclick="rejectCall()">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+</div>
+ 
+<!-- CALL OVERLAY -->
+<div id="callOverlay">
+  <div id="videoGrid">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay playsinline muted></video>
+  </div>
+  <div id="callAvatar" class="audio-rings">
+    <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+    <div class="call-avatar" id="callAvatarInner">👤</div>
+  </div>
+  <div class="call-name" id="callName">Calling...</div>
+  <div class="call-status" id="callStatus">connecting</div>
+  <div class="call-controls">
+    <button class="ctrl-btn mute" id="muteBtn" onclick="toggleMute()" title="Mute">
+      <svg id="muteIcon" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+    </button>
+    <button class="ctrl-btn end" onclick="endCall()">
+      <svg viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7 2 2 0 011.72 2v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.42 19.42 0 01-3.33-2.67m-2.67-3.34a19.79 19.79 0 01-3.07-8.63A2 2 0 014.11 2h3a2 2 0 011.72 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L7.91 9.91M23 1L1 23"/></svg>
+    </button>
+    <button class="ctrl-btn cam" id="camBtn" onclick="toggleCam()" title="Camera" style="display:none">
+      <svg id="camIcon" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+    </button>
+  </div>
+</div>
+ 
+<!-- MAIN APP -->
+<div id="app-viewport" class="view-desktop">
+  <div id="messages">
+    <div id="empty-state">
+      <div class="empty-icon">💬</div>
+      <div>No messages yet</div>
+      <div style="font-size:12px;margin-top:2px">Be the first to say something</div>
+    </div>
+  </div>
+ 
+  <div class="chat-controls">
+    <div class="settings-panel">
+      <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
+        <span>⚙️ &nbsp;Profile &amp; Room</span>
+        <span class="arrow">▾</span>
+      </button>
+      <div class="settings-body" id="settingsBody">
+        <div>
+          <div class="field-label">ROOM ID</div>
+          <input class="settings-input" type="text" id="room" placeholder="public">
+        </div>
+        <div>
+          <div class="field-label">YOUR NAME</div>
+          <input class="settings-input" type="text" id="name" placeholder="Anonymous">
+        </div>
+        <div>
+          <div class="field-label">PROFILE PHOTO</div>
+          <label class="upload-label" for="photoInput">📎 &nbsp;Choose photo to upload</label>
+          <input type="file" id="photoInput" accept="image/*">
+          <div class="photo-ready" id="photoReady">✓ Photo uploaded!</div>
+        </div>
+      </div>
+    </div>
+ 
+    <div class="input-row">
+      <button class="icon-btn" id="voiceBtn" title="Hold to record voice message">
+        <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+      </button>
+      <input type="text" id="msg" placeholder="Type something…">
+      <button id="sendBtn" aria-label="Send">
+        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+ 
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, push, onChildAdded, off, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+ 
+const firebaseConfig = {
   apiKey: "AIzaSyApQF3cgXaQsntMQpikgWVNMQ03IJ6jPQg",
   authDomain: "my-chat-61467.firebaseapp.com",
   databaseURL: "https://my-chat-61467-default-rtdb.firebaseio.com",
@@ -43,55 +304,288 @@
   appId: "1:526266288040:web:79426f7266b41157f77f9d",
   measurementId: "G-2WR1XPPVXD"
 };
-        // --------------------------------------------------
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        let currentRoom = "public";
-        let chatRef = ref(db, "chats/" + currentRoom);
-
-        // GHOST MOVEMENT
-        const ghost = document.getElementById('ghost-pet');
-        let mouseX = 0, mouseY = 0, ghostX = 0, ghostY = 0;
-        window.addEventListener('mousemove', (e) => { mouseX = e.clientX; mouseY = e.clientY; });
-        function animateGhost() {
-            ghostX += (mouseX - ghostX) * 0.15; ghostY += (mouseY - ghostY) * 0.15;
-            ghost.style.transform = `translate(${ghostX - 100}px, ${ghostY -20}px)`;
-            requestAnimationFrame(animateGhost);
-        }
-        animateGhost();
-
-        // ROOM LOGIC
-        document.getElementById("room").addEventListener("change", (e) => {
-            off(chatRef);
-            currentRoom = e.target.value.trim() || "public";
-            chatRef = ref(db, "chats/" + currentRoom);
-            document.getElementById("messages").innerHTML = "";
-            startListening();
-        });
-
-        // CHAT LOGIC
-        const sendAction = () => {
-            const m = document.getElementById("msg");
-            if (m.value.trim() !== "") {
-                push(chatRef, { name: document.getElementById("name").value || "Guest", text: m.value });
-                m.value = "";
-            }
-        };
-        document.getElementById("sendBtn").onclick = sendAction;
-        document.getElementById("msg").onkeydown = (e) => { if(e.key === "Enter") sendAction(); };
-
-        function startListening() {
-            onChildAdded(chatRef, (snap) => {
-                const data = snap.val();
-                const div = document.createElement("div");
-                div.className = "msg";
-                div.innerHTML = `<b>${data.name}</b>: ${data.text}`;
-                document.getElementById("messages").appendChild(div);
-                document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
-            });
-        }
-        startListening();
-    </script>
+ 
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const storage = getStorage(app);
+let currentRoom = "public";
+let chatRef = ref(db, "chats/" + currentRoom);
+let profilePicUrl = "";
+ 
+// ===== HELPERS =====
+window.toggleSettings = () => {
+  document.getElementById('settingsToggle').classList.toggle('open');
+  document.getElementById('settingsBody').classList.toggle('open');
+};
+window.setDevice = (type) => {
+  const vp = document.getElementById('app-viewport');
+  document.querySelectorAll('.device-btns button').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + type).classList.add('active');
+  vp.className = 'view-' + type;
+};
+function getInitials(name) { return (name||"?").split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+function formatTime(ts) { if(!ts) return ''; return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function myName() { return document.getElementById("name").value.trim() || "Anonymous"; }
+ 
+// ===== PHOTO UPLOAD =====
+document.getElementById("photoInput").onchange = async (e) => {
+  const file = e.target.files[0]; if(!file) return;
+  const storageRef = sRef(storage,'profiles/'+Date.now()+"_"+file.name);
+  try {
+    const snap = await uploadBytes(storageRef, file);
+    profilePicUrl = await getDownloadURL(snap.ref);
+    document.getElementById('photoReady').style.display = 'block';
+  } catch(err) { console.error(err); alert("Upload failed. Check Firebase Storage rules!"); }
+};
+ 
+// ===== TEXT MESSAGES =====
+const sendMsg = () => {
+  const m = document.getElementById("msg");
+  if(!m.value.trim()) return;
+  push(chatRef, { name: myName(), text: m.value.trim(), photo: profilePicUrl, ts: Date.now(), type: 'text' });
+  m.value = "";
+};
+document.getElementById("sendBtn").onclick = sendMsg;
+document.getElementById("msg").onkeydown = (e) => { if(e.key==="Enter") sendMsg(); };
+ 
+document.getElementById("room").onchange = (e) => {
+  off(chatRef);
+  currentRoom = e.target.value.trim() || "public";
+  chatRef = ref(db,"chats/"+currentRoom);
+  document.getElementById("messages").innerHTML = '<div id="empty-state" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(240,238,255,0.25);font-size:13px;text-align:center;padding:40px"><div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:24px">💬</div><div>No messages yet</div></div>';
+  startListening();
+};
+ 
+// ===== RENDER MESSAGE =====
+function renderMsg(data) {
+  const out = data.name === myName();
+  const es = document.getElementById('empty-state'); if(es) es.remove();
+  const wrap = document.createElement("div");
+  wrap.className = "msg-wrapper" + (out?" outgoing":"");
+  const av = data.photo ? `<img src="${data.photo}" class="avatar" alt="${data.name}">` : `<div class="avatar-placeholder">${getInitials(data.name)}</div>`;
+ 
+  let content = '';
+  if(data.type === 'voice') {
+    const dur = data.duration ? Math.round(data.duration)+'s' : '…';
+    content = `
+      <div class="voice-bubble ${out?'outgoing':'incoming'}">
+        <button class="play-btn" onclick="playVoice('${data.audioUrl}', this)">
+          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="white"/></svg>
+        </button>
+        <div class="voice-waveform">
+          <div class="wbar"></div><div class="wbar"></div><div class="wbar"></div>
+          <div class="wbar"></div><div class="wbar"></div><div class="wbar"></div>
+          <div class="wbar"></div><div class="wbar"></div>
+        </div>
+        <span class="voice-dur">${dur}</span>
+      </div>`;
+  } else {
+    content = `<div class="bubble ${out?'outgoing':'incoming'}">${data.text}</div>`;
+  }
+ 
+  wrap.innerHTML = `${av}<div class="bubble-group">${!out?`<div class="sender-name">${data.name}</div>`:''}${content}<div class="msg-time">${formatTime(data.ts)}</div></div>`;
+  const box = document.getElementById("messages");
+  box.appendChild(wrap);
+  box.scrollTop = box.scrollHeight;
+}
+ 
+window.playVoice = (url, btn) => {
+  const audio = new Audio(url);
+  btn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="white"/><rect x="14" y="4" width="4" height="16" fill="white"/></svg>';
+  audio.play();
+  audio.onended = () => { btn.innerHTML = '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="white"/></svg>'; };
+};
+ 
+function startListening() {
+  onChildAdded(chatRef, (snap) => renderMsg(snap.val()));
+}
+startListening();
+ 
+// ===== VOICE MESSAGE RECORDING =====
+let mediaRecorder = null, audioChunks = [], recStart = 0, recInterval = null;
+const voiceBtn = document.getElementById('voiceBtn');
+ 
+voiceBtn.addEventListener('mousedown', startRecording);
+voiceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+voiceBtn.addEventListener('mouseup', stopRecording);
+voiceBtn.addEventListener('mouseleave', stopRecording);
+voiceBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
+ 
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t=>t.stop());
+      const dur = (Date.now()-recStart)/1000;
+      const blob = new Blob(audioChunks, {type:'audio/webm'});
+      const storageRef = sRef(storage,'voice/'+Date.now()+'.webm');
+      try {
+        const snap = await uploadBytes(storageRef, blob);
+        const url = await getDownloadURL(snap.ref);
+        push(chatRef, { name: myName(), photo: profilePicUrl, ts: Date.now(), type: 'voice', audioUrl: url, duration: dur });
+      } catch(err) { alert("Voice upload failed. Check Firebase Storage rules!"); }
+    };
+    mediaRecorder.start();
+    recStart = Date.now();
+    voiceBtn.classList.add('recording');
+    voiceBtn.title = 'Release to send';
+  } catch(err) { alert("Microphone access denied!"); }
+}
+ 
+function stopRecording() {
+  if(mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    voiceBtn.classList.remove('recording');
+    voiceBtn.title = 'Hold to record voice message';
+  }
+}
+ 
+// ===== WEBRTC CALL LOGIC =====
+let pc = null, localStream = null, callType = 'audio';
+let isMuted = false, isCamOff = false;
+const sigRef = (room) => ref(db, 'calls/'+room);
+const ICE = {iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
+ 
+window.startCall = async (type) => {
+  callType = type;
+  const room = currentRoom;
+  const name = myName();
+  // Signal others
+  await set(sigRef(room+'/offer'), { from: name, type, sdp: null, ts: Date.now() });
+  // Get local media
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia(type==='video'?{video:true,audio:true}:{audio:true});
+  } catch(e) { alert("Camera/mic access denied!"); return; }
+  showCallUI(type, name+" (you)", 'calling...');
+  setupPC(true, room, localStream, type);
+};
+ 
+window.acceptCall = async () => {
+  document.getElementById('incomingCall').classList.remove('active');
+  const room = currentRoom;
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia(callType==='video'?{video:true,audio:true}:{audio:true});
+  } catch(e) { alert("Camera/mic access denied!"); return; }
+  showCallUI(callType, document.getElementById('incName').textContent, 'connecting...');
+  setupPC(false, room, localStream, callType);
+};
+ 
+window.rejectCall = () => {
+  document.getElementById('incomingCall').classList.remove('active');
+  set(sigRef(currentRoom+'/offer'), null);
+};
+ 
+function showCallUI(type, name, status) {
+  const overlay = document.getElementById('callOverlay');
+  overlay.classList.add('active');
+  document.getElementById('callName').textContent = name;
+  document.getElementById('callStatus').textContent = status;
+  document.getElementById('callAvatarInner').textContent = getInitials(name) || '👤';
+  if(type === 'video') {
+    document.getElementById('callAvatar').style.display = 'none';
+    document.getElementById('videoGrid').classList.add('visible');
+    document.getElementById('camBtn').style.display = 'flex';
+    if(localStream) document.getElementById('localVideo').srcObject = localStream;
+  } else {
+    document.getElementById('callAvatar').style.display = 'flex';
+    document.getElementById('videoGrid').classList.remove('visible');
+    document.getElementById('camBtn').style.display = 'none';
+  }
+}
+ 
+async function setupPC(isCaller, room, stream, type) {
+  pc = new RTCPeerConnection(ICE);
+  stream.getTracks().forEach(t => pc.addTrack(t, stream));
+ 
+  if(type === 'video') {
+    document.getElementById('localVideo').srcObject = stream;
+    pc.ontrack = (e) => { document.getElementById('remoteVideo').srcObject = e.streams[0]; };
+  }
+ 
+  pc.onicecandidate = async (e) => {
+    if(e.candidate) await push(ref(db,'calls/'+room+'/ice'), e.candidate.toJSON());
+  };
+ 
+  pc.onconnectionstatechange = () => {
+    const state = pc.connectionState;
+    if(state === 'connected') document.getElementById('callStatus').textContent = 'connected';
+    if(state === 'disconnected' || state === 'failed') endCall();
+  };
+ 
+  if(isCaller) {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await set(sigRef(room+'/offer'), { from: myName(), type, sdp: { type: offer.type, sdp: offer.sdp }, ts: Date.now() });
+    // Listen for answer
+    onValue(sigRef(room+'/answer'), async (snap) => {
+      const ans = snap.val();
+      if(ans && ans.sdp && pc.signalingState !== 'stable') {
+        await pc.setRemoteDescription(new RTCSessionDescription(ans.sdp));
+        document.getElementById('callStatus').textContent = 'connected';
+      }
+    });
+  } else {
+    // Answerer: get offer SDP
+    const offerSnap = await new Promise(res => onValue(sigRef(room+'/offer'), snap => res(snap), {onlyOnce: true}));
+    const offerData = offerSnap.val();
+    if(!offerData || !offerData.sdp) return;
+    await pc.setRemoteDescription(new RTCSessionDescription(offerData.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await set(sigRef(room+'/answer'), { sdp: { type: answer.type, sdp: answer.sdp } });
+  }
+ 
+  // Listen for ICE candidates
+  onChildAdded(ref(db,'calls/'+room+'/ice'), async (snap) => {
+    try { if(pc) await pc.addIceCandidate(new RTCIceCandidate(snap.val())); } catch(e) {}
+  });
+}
+ 
+window.endCall = () => {
+  if(pc) { pc.close(); pc = null; }
+  if(localStream) { localStream.getTracks().forEach(t=>t.stop()); localStream = null; }
+  remove(sigRef(currentRoom+'/offer'));
+  remove(sigRef(currentRoom+'/answer'));
+  remove(ref(db,'calls/'+currentRoom+'/ice'));
+  document.getElementById('callOverlay').classList.remove('active');
+  document.getElementById('videoGrid').classList.remove('visible');
+  isMuted = false; isCamOff = false;
+  document.getElementById('muteBtn').classList.remove('active');
+  document.getElementById('camBtn').classList.remove('active');
+};
+ 
+window.toggleMute = () => {
+  if(!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  document.getElementById('muteBtn').classList.toggle('active', isMuted);
+  document.getElementById('muteIcon').innerHTML = isMuted
+    ? '<line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/><path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23M12 19v4M8 23h8"/>'
+    : '<path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>';
+};
+ 
+window.toggleCam = () => {
+  if(!localStream) return;
+  isCamOff = !isCamOff;
+  localStream.getVideoTracks().forEach(t => t.enabled = !isCamOff);
+  document.getElementById('camBtn').classList.toggle('active', isCamOff);
+};
+ 
+// Listen for incoming calls
+onValue(ref(db,'calls/'+currentRoom+'/offer'), (snap) => {
+  const data = snap.val();
+  if(!data || !data.from || data.from === myName() || !data.sdp) return;
+  if(document.getElementById('callOverlay').classList.contains('active')) return;
+  callType = data.type || 'audio';
+  document.getElementById('incName').textContent = data.from;
+  document.getElementById('incType').textContent = 'INCOMING '+(callType.toUpperCase())+' CALL';
+  document.getElementById('incomingCall').classList.add('active');
+  setTimeout(() => document.getElementById('incomingCall').classList.remove('active'), 30000);
+});
+ 
+</script>
 </body>
 </html>
